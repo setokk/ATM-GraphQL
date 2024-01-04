@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">       <li><a href="../account/account.html">My Account</a></li>
+        </ul>
+    </header>
+
+    <form method="POST" id="form" >
+        <label for="username">Username:</label>
+        <input id="username" name="username" type="text" required/>
+        <label for="password">Password:</label>
+        <input id="password" name="password" type="password" required/>
+        <label for="email">Email:</label>
+        <input id="email" name="email" type="email" required/>
+        <button id="registerBtn" type="submit">Register</button>
+    </form>
+
+    <script type="module">
+        import { JwtUtils } from '../common/modules/JwtUtils.js';
+        import { User }      from '../common/modules/User.js';
+        import { Api }       from '../common/modules/Api.js'
+
+        const form     = document.getElementById('form')
+        const username = document.getElementById('username');
+        const password = document.getElementById('password');
+        const email    = document.getElementById('email');
+
+        form.addEventListener('submit', async (event) => {
+            event.preventDefault();
+
+            const registerBody = {
+                "username": username.value.trim(),
+                "password": password.value.trim(),
+                "email": email.value.trim()
+            }
+
+            try {
+                const response = await fetch(Api.REGISTER, {
+                    method: 'POST',
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify(registerBody)
+                });
+                
+                // Check response status
+                if (response.status === 409) {
+                    const error = await response.json();
+                    alert(error.message);
+                    return;
+                } else if (!response.ok) {
+                    alert('Problem connecting to server...');
+                    return;
+                }
+
+                // Registration successful, retrieve JWT
+                const token = await response.text();
+                JwtUtils.updateJwt(token, new User());
+
+                // Store jwt and user to local storage
+                localStorage.setItem("token", JwtUtils.token);
+                localStorage.setItem("user", JSON.stringify(JwtUtils.user));
+            } catch (error) {
+                console.error(error);
+            }
+
+        username.value = '';
+        password.value = '';
+        email.value    = '';
+
+        window.location.href = 'http://localhost:3000/account/account.html';
+    })
+    </script>
+</body>
+</html>

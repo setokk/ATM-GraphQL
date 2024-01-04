@@ -1,0 +1,12 @@
+scalar BigDecimal
+    @specifiedBy(url: "")
+
+type Query {
+    login(username: String!, password: String!): String
+}
+
+type Mutation {
+    register(username: String!, password: String!, email: String!): String
+    deposit(amount: BigDecimal): Boolean # Return nothing
+    withdraw(amount: BigDecimal): Boolean # Return nothing
+}
