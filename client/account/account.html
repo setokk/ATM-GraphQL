@@ -65,30 +65,17 @@
                 return;
             }
 
-            const response = await makeTransactionRequest(Api.WITHDRAW, token, amountInput.value);
-
-            if (response.status === 400) {
-                const error = await response.json();
-                alert(error.message);
-                return;
-            } else if (response.status === 403) {
-                alert("Token expired or missing!");
-                return;
-            } else if (response.status === 500) {
-                alert("Internal server error. Please try again later.");
-                return;
-            } else if (!response.ok) {
-                alert("Unknown server error.");
-                return;
-            }
-
-            // Respose is ok at this point
-            alert("Withdraw successful!");
+            const response = await makeTransactionRequest("Withdraw", token, amountInput.value);
+            const isSuccessful = await processGraphQLResponse(response);
+            
+            if (isSuccessful) {
+                alert("Withdraw successful!");
         
-            // Refresh local storage
-            user.balance -= parseFloat(amountInput.value);
-            balance.textContent = `Balance: ${user.balance}€`;
-            localStorage.setItem("user", JSON.stringify(user));
+                // Refresh local storage
+                user.balance -= parseFloat(amountInput.value);
+                balance.textContent = `Balance: ${user.balance}€`;
+                localStorage.setItem("user", JSON.stringify(user));
+            }
         });
 
         depositBtn.addEventListener('click', async () => {
@@ -106,46 +93,67 @@
                 return;
             }
 
-            const response = await makeTransactionRequest(Api.DEPOSIT, token, amountInput.value);
-
-            if (response.status === 400) {
-                const error = await response.json();
-                alert(error.message);
-                return;
-            } else if (response.status === 403) {
-                alert("Token expired!");
-                return;
-            } else if (response.status === 500) {
-                alert("Internal server error. Please try again later.");
-                return;
-            } else if (!response.ok) {
-                alert("Unknown server error.");
-                return;
-            }
-
-            // Respose is ok at this point
-            alert("Deposit successful!");
+            const response = await makeTransactionRequest("Deposit", token, amountInput.value);
+            const isSuccessful = await processGraphQLResponse(response);
+            
+            if (isSuccessful) {
+                alert("Deposit successful!");
         
-            // Refresh local storage
-            user.balance += parseFloat(amountInput.value);
-            balance.textContent = `Balance: ${user.balance}€`;
-            localStorage.setItem("user", JSON.stringify(user));
+                // Refresh local storage
+                user.balance += parseFloat(amountInput.value);
+                balance.textContent = `Balance: ${user.balance}€`;
+                localStorage.setItem("user", JSON.stringify(user));
+            }
         });
 
 
-        async function makeTransactionRequest(url, token, amount) {
-            // Withdraw/Deposit URL needs query param
-            const apiUrl = new URL(url);
-            apiUrl.searchParams.append('amount', amount);
-            const response = await fetch(apiUrl, {
-                method: "GET",
-                headers: {
-                    "Authorization": "Bearer "  + token,
+        async function makeTransactionRequest(methodName, token, amount) {
+            // Build query body
+            const transactionBody = `
+                mutation ${methodName}($amount: BigDecimal!) {
+                    ${methodName.toLowerCase()}(amount: $amount) 
                 }
-            });
+            `;
+            
+            const response = await fetch(Api.GRAPHQL, {
+                    method: 'POST',
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Authorization": "Bearer "  + token,
+                    },
+                    body: JSON.stringify({
+                        query: transactionBody,
+                        variables: {
+                            amount: amount
+                        }
+                    })
+                });
 
             return response;
-        } 
+        }
+        
+        async function processGraphQLResponse(response) {
+            // Get data
+            const graphqlData = await response.json();
+            
+            // Check if any errors occured
+            const errors = graphqlData.errors;
+            if (response.status === 401) {
+                alert("Token expired!");
+                return false;
+            }
+            else if (!response.ok) {
+                alert("Problem connecting to server...")
+                return false;
+            }
+            else if (errors !== undefined) {
+                const [statusCode, errorMessage] = errors[0].message.split(':,:');
+                alert(`Status Code: ${statusCode}\n${errorMessage}`);
+                return false;
+            }
+
+            return true;
+        }
     </script>
 </body>
 </html>

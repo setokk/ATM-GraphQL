@@ -36,32 +36,42 @@
         form.addEventListener('submit', async (event) => {
             event.preventDefault();
 
-            const loginBody = {
-                "username": username.value.trim(),
-                "password": password.value.trim()
-            }
+            const loginBody = `
+                query Login($username: String!, $password: String!) {
+                    login(username: $username, password: $password) 
+                }
+            `;
 
             try {
-                const response = await fetch(Api.LOGIN, {
+                const response = await fetch(Api.GRAPHQL, {
                     method: 'POST',
                     headers: {
                         "Content-Type": "application/json",
                     },
-                    body: JSON.stringify(loginBody)
+                    body: JSON.stringify({
+                        query: loginBody,
+                        variables: {
+                            username: username.value.trim(),
+                            password: password.value.trim()
+                        }
+                    })
                 });
                 
+                // Get data
+                const graphqlData = await response.json();
+
                 // Check response status
-                if (response.status === 404 || response.status === 401) {
-                    const error = await response.json();
-                    alert(error.message);
+                const token = graphqlData.data.login;
+                if (!response.ok) {
+                    alert("Problem connecting to server...");
                     return;
-                } else if (!response.ok) {
-                    alert('Problem connecting to server...');
+                } else if (token === null) {
+                    const [statusCode, errorMessage] = graphqlData.errors[0].message.split(':,:');
+                    alert(`Status Code: ${statusCode}\n${errorMessage}`);
                     return;
                 }
 
                 // Registration successful, retrieve JWT
-                const token = await response.text();
                 JwtUtils.updateJwt(token, new User());
                 
                 // Store jwt and user to local storage

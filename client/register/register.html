@@ -1,5 +1,11 @@
 <!DOCTYPE html>
-<html lang="en">       <li><a href="../account/account.html">My Account</a></li>
+<html lang="en">       
+    <header>
+        <ul>
+            <li><a href="../home/home.html">Home</a></li>
+            <li><a href="../login/login.html">Login</a></li>
+            <li><a href="../register/register.html">Register</a></li>
+            <li><a href="../account/account.html">My Account</a></li>
         </ul>
     </header>
 
@@ -14,7 +20,7 @@
     </form>
 
     <script type="module">
-        import { JwtUtils } from '../common/modules/JwtUtils.js';
+        import { JwtUtils }  from '../common/modules/JwtUtils.js';
         import { User }      from '../common/modules/User.js';
         import { Api }       from '../common/modules/Api.js'
 
@@ -26,33 +32,43 @@
         form.addEventListener('submit', async (event) => {
             event.preventDefault();
 
-            const registerBody = {
-                "username": username.value.trim(),
-                "password": password.value.trim(),
-                "email": email.value.trim()
-            }
+            const registerBody = `
+                mutation Register($username: String!, $password: String!, $email: String!) {
+                    register(username: $username, password: $password, email: $email) 
+                }
+            `;
 
             try {
-                const response = await fetch(Api.REGISTER, {
+                const response = await fetch(Api.GRAPHQL, {
                     method: 'POST',
                     headers: {
                         "Content-Type": "application/json",
                     },
-                    body: JSON.stringify(registerBody)
+                    body: JSON.stringify({
+                        query: registerBody,
+                        variables: {
+                            username: username.value.trim(),
+                            password: password.value.trim(),
+                            email: email.value.trim()
+                        }
+                    })
                 });
                 
+                // Get data
+                const graphqlData = await response.json();
+
                 // Check response status
-                if (response.status === 409) {
-                    const error = await response.json();
-                    alert(error.message);
+                const token = graphqlData.data.register;
+                if (!response.ok) {
+                    alert("Problem connecting to server...");
                     return;
-                } else if (!response.ok) {
-                    alert('Problem connecting to server...');
+                } else if (token === null) {
+                    const [statusCode, errorMessage] = graphqlData.errors[0].message.split(':,:');
+                    alert(`Status Code: ${statusCode}\n${errorMessage}`);
                     return;
                 }
 
                 // Registration successful, retrieve JWT
-                const token = await response.text();
                 JwtUtils.updateJwt(token, new User());
 
                 // Store jwt and user to local storage
